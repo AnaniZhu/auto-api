@@ -1,0 +1,29 @@
+{
+  "name": "dxy-mock",
+  "version": "1.0.0",
+  "description": "dxy api-mock init",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "automation",
+    "mock",
+    "typescript"
+  ],
+  "author": "zhuwenhan",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^5.16.0",
+    "eslint-config-standard": "^12.0.0",
+    "eslint-plugin-import": "^2.17.2",
+    "eslint-plugin-node": "^8.0.1",
+    "eslint-plugin-promise": "^4.1.1",
+    "eslint-plugin-standard": "^4.0.0"
+  },
+  "dependencies": {
+    "axios": "^0.18.0",
+    "dayjs": "^1.8.13",
+    "tslint": "^5.16.0"
+  }
+}

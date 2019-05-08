@@ -1,3 +1,6 @@
+#! /usr/bin/env node
+const program = require('commander')
+
 const fs = require('fs')
 const process = require('process')
 const path = require('path')
@@ -8,7 +11,18 @@ const { subscribeMockModules } = require('./config')
 const { writeFile, fillIndent } = require('./utils')
 const { LF } = require('./constant')
 
-;(async () => {
+program
+    .command('create')
+    .description('初始化interface 和 request 文件')
+    // .option('-a, --name [moduleName]', '模块名称')
+    .action(option => {
+      init()
+    })
+
+program.parse(process.argv)
+
+
+async function init () {
   const cwd = process.cwd()
   let cookieFileDir = path.resolve(cwd, 'node_modules', '.cache', 'automock', 'cookie.js')
   let cookie
@@ -40,4 +54,4 @@ const { LF } = require('./constant')
     console.log(err)
     console.log(LF + err.message + ', 程序结束')
   }
-})()
+}

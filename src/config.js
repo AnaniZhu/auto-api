@@ -53,7 +53,7 @@ function getConfig () {
     config = { ...defaultConfig, ...customConfig, subscribeMockModules: parseModules(customConfig.subscribeMockModules) }
   } catch (err) {
     config = defaultConfig
-    console.warn(err, '项目根目录不存在配置文件: .automock.js，采取默认配置')
+    console.warn('项目根目录不存在配置文件: .automock.js，采取默认配置')
   }
   return config
 }

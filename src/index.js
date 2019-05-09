@@ -12,15 +12,14 @@ const { writeFile, fillIndent } = require('./utils')
 const { LF } = require('./constant')
 
 program
-    .command('create')
-    .description('初始化interface 和 request 文件')
-    // .option('-a, --name [moduleName]', '模块名称')
-    .action(option => {
-      init()
-    })
+  .command('create')
+  .description('初始化interface 和 request 文件')
+// .option('-a, --name [moduleName]', '模块名称')
+  .action(option => {
+    init()
+  })
 
 program.parse(process.argv)
-
 
 async function init () {
   const cwd = process.cwd()
@@ -36,7 +35,7 @@ async function init () {
     console.log('👏 登录成功' + LF)
 
     let cookieFileText = 'module.exports = {' + LF
-    cookieFileText += fillIndent() + `cookie: '${cookie}${LF}'`
+    cookieFileText += fillIndent() + `cookie: '${cookie}'${LF}`
     cookieFileText += '}' + LF
     writeFile(cookieFileDir, cookieFileText, (err) => {
       console.log(err ? '❌ 记录登录态失败' : '✅ 已记录登录信息，下次可以免登陆')
@@ -51,7 +50,6 @@ async function init () {
       processResources(resources, moduleConfig)
     })
   } catch (err) {
-    console.log(err)
     console.log(LF + err.message + ', 程序结束')
   }
 }

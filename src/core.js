@@ -62,7 +62,7 @@ function getDynamicPathParams (url) {
 }
 
 function getMatchedResult (api) {
-  let { prodUrl, devUrl, _id } = api
+  let { prodUrl, devUrl, _id, group } = api
   // 线上地址未填的话，取测试地址
   let url = FULL_API_URL_REG.test(prodUrl) || API_URL_REG.test(prodUrl) ? prodUrl : devUrl
 
@@ -85,17 +85,17 @@ function getMatchedResult (api) {
     let [matchURL] = url.match(API_URL_REG)
     let dynamicPathParams = getDynamicPathParams(matchURL)
     return {
-      moduleName: _id,
+      moduleName: group,
       path: matchURL,
       dynamicPathParams
     }
   } else {
-    throw new Error(`接口地址非法: ${url}, 请检查文档是否准确。${LF} 文档地址：${MOCK_DOC_URL}${_id}`)
+    throw new Error(`接口地址非法: ${url}, 请检查文档中测试地址和线上地址是否规范。${LF} 文档地址：${MOCK_DOC_URL}${group}/${_id}`)
   }
 }
 
 function createAPIName (api) {
-  let { prodUrl, options: { method } } = api
+  let { _id, prodUrl, options: { method } } = api
   let { path } = getMatchedResult(api)
   let pathArray = path.replace(DYNAMIC_REG, '').split('/')
   // 取最后一个路径作为api名字
@@ -103,7 +103,9 @@ function createAPIName (api) {
 
   let isList = false
   let params
-  let hashStr = encodeText(prodUrl, 4) // 根据生产环境的接口地址生成hash，防止命名重复
+  // let hashStr = encodeText(prodUrl, 4) // 根据生产环境的接口地址生成hash，防止命名重复
+  // 可能会出现 prodUrl 不存在的情况，暂时取接口id后4位作为hash
+  let hashStr = _id.slice(-4)
 
   if (method === 'get' && (params = getResponseParams(api))) {
     // 前后端约定 get 请求 列表查询的接口一定含有 data.items 字段
@@ -346,8 +348,7 @@ function writeInterfaceIntoFile (interfaceList, fileName) {
   let file = path.resolve(finallyInterfaceFileDir, fileName + EXT)
   writeFile(file, interfaceText + exportText, err => {
     if (err) throw err
-    console.timeEnd('interface file')
-    console.log('interface 文件写入成功')
+    // console.log('interface 文件写入成功')
   })
 }
 
@@ -371,8 +372,7 @@ function writeRequestIntoFile (requestList, requestFileName, interfaceFileName) 
   let file = path.resolve(finallyRequestFileDir, requestFileName + EXT)
   writeFile(file, importText + injectRequestFileText + exportText, err => {
     if (err) throw err
-    console.timeEnd('request file')
-    console.log('reqeust 文件写入成功')
+    // console.log('reqeust 文件写入成功')
   })
 }
 
@@ -399,26 +399,29 @@ function processResources (resources, moduleConfig) {
 
     let interfaceList = []
     let requestList = []
-    needResources.forEach(resource => {
+    needResources.forEach((resource, index) => {
       try {
         let { apiInterface, apiRequest, interfaceNameObj } = processResource(resource)
         interfaceList.push({ apiInterface, interfaceNameObj })
         requestList.push({ apiRequest, interfaceNameObj })
       } catch (err) {
         let { _id, group, name } = resource
-        console.log(`${name}: 处理该接口时遇到了未知错误，请检查接口文档: ${MOCK_DOC_URL}${group}/${_id}`)
+        console.log(`${name}: 处理该接口时遇到了未知错误，请检查接口文档是否规范: ${MOCK_DOC_URL}${group}/${_id}`)
       }
     })
+    let moduleName
 
-    let moduleName = name || getMatchedResult(resources[0]).moduleName
+    try {
+      moduleName = name || getMatchedResult(needResources[0]).moduleName
+    } catch (err) {
+      console.log('获取模块名失败')
+    }
 
     const finallyInterfaceOutputFileName = outputInterfaceFileName ? parseFileName(outputInterfaceFileName, moduleName) : moduleName
     const finallyRequestOutputFileName = outputRequestFileName ? parseFileName(outputRequestFileName, moduleName) : moduleName
 
-    console.time('interface file')
     writeInterfaceIntoFile(interfaceList, finallyInterfaceOutputFileName)
     // writeCommentsIntoFile(comment)
-    console.time('request file')
     writeRequestIntoFile(requestList, finallyRequestOutputFileName, finallyInterfaceOutputFileName)
   }
 }

@@ -38,7 +38,7 @@ async function fetchMocksData (mockModules, cookie) {
   try {
     requestPromises = mockModules.map(({ hash: moduleHash }) => {
       return axios({
-        url: `${MOCK_REQUEST_URL}/${moduleHash}?page=1&limit=10000`,
+        url: `${MOCK_REQUEST_URL}/${moduleHash}?page=1&limit=10000&order=%7B%22name%22:1%7D`,
         method: 'get',
         headers: {
           Cookie: cookie

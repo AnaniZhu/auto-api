@@ -17,18 +17,37 @@ const fs = require('fs')
 
 // 默认配置
 const defaultConfig = {
+  // 缩进大小
   tabSize: 2,
+  // interface 名前缀
   interfacePrefix: 'I',
-  paramsInterfaceSuffix: 'Params',
-  payloadInterfaceSuffix: 'Payload',
+  // 路由 动态id 的 interface 名后缀
+  dynamicPathInterfaceSuffix: 'Payload',
+  // get 请求所带参数 的 interface 名后缀
+  queryInterfaceSuffix: 'Params',
+  // post/delete/put/patch 所带数据（body）
+  bodyInterfaceSuffix: 'Data',
+  // response 的 interface 名后缀
   responseInterfaceSuffix: 'Response',
+  // 继承的基础 interface 名
   baseExtendInterface: 'IBase',
-  paramsExtendInterface: 'IParams',
+  // 继承的拥有 动态路径 interface 名
+  dynamicPathExtendInterface: 'IPayload',
+  // post/put/patch 传入参数在 http body 中的 interface 名
+  bodyExtendInterface: 'IData',
+  // 以上两者同时满足时，采用的 继承 interface
+  bothExtendInterface: 'IBoth',
+  // 创建 request 的方法名
   createRequestFn: 'createServer',
+  // 输出 interface 的路径
   interfaceOutputDir: './src/interface',
+  // 输出 request 的路径
   reqeustOutputDir: './src/request',
+  // 输出 interface 的文件名
   outputInterfaceFileName: '[name]',
+  // 输出 request 的文件名
   outputRequestFileName: '[name]',
+  // 需要注入在 request 文件的内容
   injectRequestFileText: '',
   subscribeMockModules: []
 }

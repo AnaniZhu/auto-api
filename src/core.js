@@ -22,11 +22,14 @@ const {
 
 const {
   interfacePrefix,
-  paramsInterfaceSuffix,
-  payloadInterfaceSuffix,
+  dynamicPathInterfaceSuffix,
+  queryInterfaceSuffix,
+  bodyInterfaceSuffix,
   responseInterfaceSuffix,
   baseExtendInterface,
-  paramsExtendInterface,
+  dynamicPathExtendInterface,
+  bodyExtendInterface,
+  bothExtendInterface,
   createRequestFn,
   interfaceOutputDir,
   reqeustOutputDir,
@@ -105,7 +108,7 @@ function createAPIName (api) {
   if (method === 'get' && (params = getResponseParams(api))) {
     // 前后端约定 get 请求 列表查询的接口一定含有 data.items 字段
     let dataKeyParam = params.find(param => param.key === 'data')
-    if (dataKeyParam) {
+    if (dataKeyParam && dataKeyParam.params) {
       let itemsKeyParam = dataKeyParam.params.find(param => param.key === 'items')
       isList = !!itemsKeyParam
     }
@@ -204,33 +207,44 @@ ${tabStr} */
 `
 }
 
-function createParamsInterface (api, interfaceName) {
+function createDynamicPathInterface (api, interfaceName) {
   let content = getMatchedResult(api)
     .dynamicPathParams.reduce((content, param) => (content += `${fillIndent()}${param}: number;${LF}`), '')
   return createInterface(api, content, interfaceName)
 }
 
-function getValidPayload (api) {
-  let { body, query } = api.options.params
-  // 确定请求 paylod 参数
-  let params = body.length > 0 ? body : query
+function getValidParams (params) {
   // 有些接口文档 的 payload key 为 null，此为无效
   // console.log(params.length && params.every(param => {
   //   console.log(param.key)
   //   return param.key
   // }))
-  return params.length && params.every(param => param.key) ? params : []
+  return params && params.length && params.every(param => param.key) ? params : []
+}
+function createDataInterface (api, params, interfaceName) {
+  let validParams = getValidParams(params)
+  return validParams.length ? createInterface(api, createInterfaceFileds(validParams), interfaceName) : ''
 }
 
-function createPayloadInterface (api, interfaceName) {
-  let params = getValidPayload(api)
-  return params.length ? createInterface(api, createInterfaceFileds(params), interfaceName) : ''
-}
+function createRequestInterface (api, { dynamicPathInterfaceName, queryInterfaceName, bodyInterfaceName }) {
+  let { params, method } = api.options
+  let { body, query } = params
 
-function createRequestInterface (api, { paramsInterfaceName, payloadInterfaceName }) {
-  return DYNAMIC_REG.test(api.prodUrl)
-    ? createParamsInterface(api, paramsInterfaceName) + createPayloadInterface(api, payloadInterfaceName)
-    : createPayloadInterface(api, payloadInterfaceName)
+  let interfaceText = ''
+
+  if (DYNAMIC_REG.test(api.prodUrl)) {
+    interfaceText += createDynamicPathInterface(api, dynamicPathInterfaceName)
+  }
+
+  if (query) {
+    interfaceText += createDataInterface(api, query, queryInterfaceName)
+  }
+
+  if (method !== 'get' && body) {
+    interfaceText += createDataInterface(api, body, bodyInterfaceName)
+  }
+
+  return interfaceText
 }
 
 function createResponseInterface (api, { responseInterfaceName }) {
@@ -258,18 +272,39 @@ function createTSInterface (api, interfaceNameObj) {
  * eg: getPatient: (arg?: IBase<IGetPatientPayload>): IGetPatientResponse => createServer('get', 'adfadsfadsfasdkfa', '/path/xxx', false)(arg),
  * eg: putPatient: (arg: IParams<IGetPatientPayload, IGetPatientParams>): IGetPatientResponse => createServer('put', 'adfad', '/path/xxx', false)(arg),
  * @param {*} api
- * @param {*} { paramsInterfaceName, payloadInterfaceName, responseInterfaceName }
+ * @param {*} { dynamicPathInterfaceName, queryInterfaceName, bodyInterfaceName, responseInterfaceName }
  * @returns String
  * 接口可能不存在 query & payload， 给与默认值 void
  */
-function createRequest (api, { paramsInterfaceName, payloadInterfaceName = 'void', responseInterfaceName }) {
-  let { _id, prodUrl, options: { method } } = api
+function createRequest (api, { dynamicPathInterfaceName, queryInterfaceName = 'object', bodyInterfaceName, responseInterfaceName }) {
+  let { _id, prodUrl, options: { method, params: { body } } } = api
   let { path } = getMatchedResult(api)
   let indent = fillIndent()
   let APIName = createAPIName(api)
   let hasDynamic = DYNAMIC_REG.test(prodUrl)
-  let requireStr = hasDynamic ? '' : '?'
-  let generic = hasDynamic ? `${paramsExtendInterface}<${payloadInterfaceName}, ${paramsInterfaceName}>` : `${baseExtendInterface}<${payloadInterfaceName}>`
+  let requireStr = '?'
+
+  let baseInterface = baseExtendInterface
+  let genericParams = queryInterfaceName
+
+  if (hasDynamic) {
+    requireStr = ''
+    baseInterface = dynamicPathExtendInterface
+    genericParams += ', ' + dynamicPathInterfaceName
+  }
+
+  if (method !== 'get' && getValidParams(body).length) {
+    requireStr = ''
+    baseInterface = bodyExtendInterface
+    genericParams += ', ' + bodyInterfaceName
+  }
+
+  // 同时满足动态路径 和 http body 的条件下
+  if (hasDynamic && method !== 'get' && getValidParams(body).length) {
+    baseInterface = bothExtendInterface
+  }
+
+  let generic = `${baseInterface}<${genericParams}>`
   let returnExpressionStr = `${createRequestFn}('${method}', '${_id}', '${path}', false)(arg)`
   let comment = createRequestComment(api)
   let singleRequestText = `${indent}${APIName}: (arg${requireStr}: ${generic}): ${responseInterfaceName} => ${returnExpressionStr},${LF}`
@@ -277,18 +312,22 @@ function createRequest (api, { paramsInterfaceName, payloadInterfaceName = 'void
 }
 
 function createInterfaceNames (api) {
-  let payloadInterfaceName = createInterfaceName(api, payloadInterfaceSuffix)
   let responseInterfaceName = createInterfaceName(api, responseInterfaceSuffix)
 
   let namesObj = {} // 按顺序给对象添加属性，方便后续遍历
+  let { body, query } = api.options.params
 
   if (DYNAMIC_REG.test(api.prodUrl)) {
-    let paramsInterfaceName = createInterfaceName(api, paramsInterfaceSuffix)
-    namesObj.paramsInterfaceName = paramsInterfaceName
+    namesObj.dynamicPathInterfaceName = createInterfaceName(api, dynamicPathInterfaceSuffix)
   }
-  // 存在请求参数时才生成对应的name, 某些接口无有效 query & paylaod
-  if (getValidPayload(api).length) {
-    namesObj.payloadInterfaceName = payloadInterfaceName
+  // 存在参数时才生成对应的name, 某些接口无有效 query & paylaod
+  if (getValidParams(query).length) {
+    let queryInterfaceName = createInterfaceName(api, queryInterfaceSuffix)
+    namesObj.queryInterfaceName = queryInterfaceName
+  }
+  if (getValidParams(body).length) {
+    let bodyInterfaceName = createInterfaceName(api, bodyInterfaceSuffix)
+    namesObj.bodyInterfaceName = bodyInterfaceName
   }
 
   namesObj.responseInterfaceName = responseInterfaceName
@@ -361,9 +400,14 @@ function processResources (resources, moduleConfig) {
     let interfaceList = []
     let requestList = []
     needResources.forEach(resource => {
-      let { apiInterface, apiRequest, interfaceNameObj } = processResource(resource)
-      interfaceList.push({ apiInterface, interfaceNameObj })
-      requestList.push({ apiRequest, interfaceNameObj })
+      try {
+        let { apiInterface, apiRequest, interfaceNameObj } = processResource(resource)
+        interfaceList.push({ apiInterface, interfaceNameObj })
+        requestList.push({ apiRequest, interfaceNameObj })
+      } catch (err) {
+        let { _id, group, name } = resource
+        console.log(`${name}: 处理该接口时遇到了未知错误，请检查接口文档: ${MOCK_DOC_URL}${group}/${_id}`)
+      }
     })
 
     let moduleName = name || getMatchedResult(resources[0]).moduleName

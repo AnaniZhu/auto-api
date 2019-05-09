@@ -1,6 +1,6 @@
 {
   "name": "@dxy-health/dxcare-auto-api",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "dxy api-mock init",
   "main": "src/index.js",
   "bin": {

@@ -1,7 +1,7 @@
 {
-  "name": "dxy-mock",
+  "name": "auto-api",
   "version": "1.0.0",
-  "description": "dxy api-mock init",
+  "description": "auto api",
   "bin": {
     "auto": "./src/index.js"
   },

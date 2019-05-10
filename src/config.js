@@ -19,6 +19,8 @@ const fs = require('fs')
 const defaultConfig = {
   // 缩进大小
   tabSize: 2,
+  // interface 是否全局作用域， 非全局会导出，request 文件自动导入
+  isGlobal: false,
   // interface 名前缀
   interfacePrefix: 'I',
   // 路由 动态id 的 interface 名后缀
@@ -56,6 +58,8 @@ const process = require('process')
 const path = require('path')
 const configFileDir = path.resolve(process.cwd(), '.automock.js')
 
+console.log(configFileDir)
+
 function parseModules (modules) {
   return modules.map(mod => {
     if (typeof mod === 'string') return { hash: mod }
@@ -68,12 +72,12 @@ function getConfig () {
   let config
   try {
     fs.statSync(configFileDir)
-    let customConfig = require(configFileDir)
-    config = { ...defaultConfig, ...customConfig, subscribeMockModules: parseModules(customConfig.subscribeMockModules) }
   } catch (err) {
-    config = defaultConfig
     console.warn('项目根目录不存在配置文件: .automock.js，采取默认配置')
+    return defaultConfig
   }
+  let customConfig = require(configFileDir)
+  config = { ...defaultConfig, ...customConfig, subscribeMockModules: parseModules(customConfig.subscribeMockModules) }
   return config
 }
 

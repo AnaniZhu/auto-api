@@ -49,6 +49,7 @@ async function init () {
       let moduleConfig = subscribeMockModules[index]
       processResources(resources, moduleConfig)
     })
+    console.log(LF + '👏 操作完成!!!' + LF)
   } catch (err) {
     console.log(LF + err.message + ', 程序结束')
   }

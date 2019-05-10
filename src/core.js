@@ -21,6 +21,7 @@ const {
 } = require('./constant')
 
 const {
+  isGlobal,
   interfacePrefix,
   dynamicPathInterfaceSuffix,
   queryInterfaceSuffix,
@@ -255,12 +256,13 @@ function createResponseInterface (api, { responseInterfaceName }) {
 
 function createInterface (api, content, interfaceName, extendsInterface) {
   let extendStr = extendsInterface ? ` extends ${extendsInterface}` : ''
-  let fristRow = `export interface ${interfaceName}${extendStr} {${LF}`
+  let exportStr = isGlobal ? '' : 'export'
+  let fristRow = `${exportStr} interface ${interfaceName}${extendStr} {${LF}`
   let lastRow = '}' + LF
   return fristRow + content + lastRow
 }
 
-function createTSInterface (api, interfaceNameObj) {
+function createAPIInterface (api, interfaceNameObj) {
   let interfaceComment = createInterfaceComment(api)
   let requestInterface = createRequestInterface(api, interfaceNameObj)
   let responseInterface = createResponseInterface(api, interfaceNameObj)
@@ -365,11 +367,13 @@ function writeRequestIntoFile (requestList, requestFileName, interfaceFileName) 
     importText += indent + Object.values(interfaceNameObj).join(',' + LF + indent) + `,${LF}`
     exportText += apiRequest
   })
-  importText += `${LF}} from '${interfaceFileDir}'${LF}${LF}`
+  importText += `${LF}} from '${interfaceFileDir}'${LF}`
   exportText += '}' + LF
 
+  // 全局作用域的 interface 不需要 import
+  let text = isGlobal ? injectRequestFileText + exportText : importText + injectRequestFileText + exportText
   let file = path.resolve(finallyRequestFileDir, requestFileName + EXT)
-  writeFile(file, importText + injectRequestFileText + exportText, err => {
+  writeFile(file, text, err => {
     if (err) throw err
     // console.log('reqeust 文件写入成功')
   })
@@ -377,7 +381,7 @@ function writeRequestIntoFile (requestList, requestFileName, interfaceFileName) 
 
 function processResource (api) {
   let interfaceNameObj = createInterfaceNames(api)
-  let apiInterface = createTSInterface(api, interfaceNameObj)
+  let apiInterface = createAPIInterface(api, interfaceNameObj)
   let apiRequest = createRequest(api, interfaceNameObj)
 
   return {

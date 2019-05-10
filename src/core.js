@@ -9,7 +9,7 @@ const {
   isSimpleType,
   fillIndent,
   upperWordInitial,
-  encodeText,
+  // encodeText,
   writeFile,
   parseFileName
 } = require('./utils')
@@ -42,7 +42,7 @@ const EXT = '.ts'
 
 // 该正则捕获三个分组: 项目名、模块名、剩余路径
 // eg: https://dxcare.cn/clinic/medicine/chineseMedicine/:id => clinic(项目名), medicine(模块名), /chineseMedicine/:id(剩余路径)
-const FULL_API_URL_REG = /https?:\/\/[a-zA-Z]+\.(?:cn|com)\/([a-zA-Z]+)\/([a-zA-Z]+)(\/.*)$/
+const FULL_API_URL_REG = /https?:\/\/\w+\.(?:cn|com)\/(\w+)\/(\w+)(\/.*)$/
 
 // 有些接口未带上域名, eg: /clinic/patient/patient/member/rule/:id
 // 此时无法判断 项目名和模块名， 因为会出现无项目名的情况
@@ -70,7 +70,6 @@ function getMatchedResult (api) {
   if (FULL_API_URL_REG.test(url)) {
     let [matchURL, projectName, moduleName, restPath] = url.match(FULL_API_URL_REG)
     let dynamicPathParams = getDynamicPathParams(restPath)
-
     return {
       matchURL,
       path: '/' + projectName + '/' + moduleName + restPath,
@@ -159,18 +158,18 @@ function getFiledInterfaceType ({ type, items, params }, level = 1) {
     return type
   }
 }
-function createInterfaceFiled (param, level) {
+function createInterfaceFiled (param, level, forceRequired) {
   let { key, required } = param
-  let optional = required ? '' : '?'
+  let optionalStr = forceRequired || required ? '' : '?'
   let tabStr = fillIndent(level)
 
   let paramComment = param.comment ? `${tabStr}/** ${param.comment} */${LF}` : ''
-  let singleParamText = `${tabStr}${key}${optional}: ${getFiledInterfaceType(param, level)};${LF}`
+  let singleParamText = `${tabStr}${key}${optionalStr}: ${getFiledInterfaceType(param, level)};${LF}`
   return paramComment + singleParamText
 }
 
-function createInterfaceFileds (params, level = 1) {
-  return params.reduce((str, param) => (str += createInterfaceFiled(param, level)), '')
+function createInterfaceFileds (params, level = 1, forceRequired = false) {
+  return params.reduce((str, param) => (str += createInterfaceFiled(param, level, forceRequired)), '')
 }
 
 function createInterfaceComment (api) {
@@ -251,7 +250,7 @@ function createRequestInterface (api, { dynamicPathInterfaceName, queryInterface
 
 function createResponseInterface (api, { responseInterfaceName }) {
   let params = getResponseParams(api)
-  return params ? createInterface(api, createInterfaceFileds(params), responseInterfaceName) : ''
+  return params ? createInterface(api, createInterfaceFileds(params, 1, true), responseInterfaceName) : ''
 }
 
 function createInterface (api, content, interfaceName, extendsInterface) {

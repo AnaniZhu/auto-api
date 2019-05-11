@@ -19,26 +19,18 @@ const fs = require('fs')
 const defaultConfig = {
   // 缩进大小
   tabSize: 2,
+  // interface 是否全局作用域， 非全局会导出，request 文件自动导入
+  isGlobal: false,
   // interface 名前缀
   interfacePrefix: 'I',
   // 路由 动态id 的 interface 名后缀
-  dynamicPathInterfaceSuffix: 'Payload',
+  dynamicPathInterfaceSuffix: 'Path',
   // get 请求所带参数 的 interface 名后缀
-  queryInterfaceSuffix: 'Params',
+  queryInterfaceSuffix: 'Query',
   // post/delete/put/patch 所带数据（body）
-  bodyInterfaceSuffix: 'Data',
+  bodyInterfaceSuffix: 'Body',
   // response 的 interface 名后缀
   responseInterfaceSuffix: 'Response',
-  // 继承的基础 interface 名
-  baseExtendInterface: 'IBase',
-  // 继承的拥有 动态路径 interface 名
-  dynamicPathExtendInterface: 'IPayload',
-  // post/put/patch 传入参数在 http body 中的 interface 名
-  bodyExtendInterface: 'IData',
-  // 以上两者同时满足时，采用的 继承 interface
-  bothExtendInterface: 'IBoth',
-  // 创建 request 的方法名
-  createRequestFn: 'createServer',
   // 输出 interface 的路径
   interfaceOutputDir: './src/interface',
   // 输出 request 的路径
@@ -49,6 +41,10 @@ const defaultConfig = {
   outputRequestFileName: '[name]',
   // 需要注入在 request 文件的内容
   injectRequestFileText: '',
+  // 一个自定义函数，可自定义生成每一个 request 请求（与订阅 api 的数量一致）。
+  // 该函数接受一个参数，此参数为一个处理过后的配置对象
+  // 该函数接受一个返回值，返回的文本即最终生成的每一个 request 的字符串
+  customAPIGenerator: null,
   subscribeMockModules: []
 }
 
@@ -68,12 +64,12 @@ function getConfig () {
   let config
   try {
     fs.statSync(configFileDir)
-    let customConfig = require(configFileDir)
-    config = { ...defaultConfig, ...customConfig, subscribeMockModules: parseModules(customConfig.subscribeMockModules) }
   } catch (err) {
-    config = defaultConfig
     console.warn('项目根目录不存在配置文件: .automock.js，采取默认配置')
+    return defaultConfig
   }
+  let customConfig = require(configFileDir)
+  config = { ...defaultConfig, ...customConfig, subscribeMockModules: parseModules(customConfig.subscribeMockModules) }
   return config
 }
 

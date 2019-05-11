@@ -27,11 +27,7 @@ const {
   queryInterfaceSuffix,
   bodyInterfaceSuffix,
   responseInterfaceSuffix,
-  baseExtendInterface,
-  dynamicPathExtendInterface,
-  bodyExtendInterface,
-  bothExtendInterface,
-  createRequestFn,
+  customAPIGenerator,
   interfaceOutputDir,
   reqeustOutputDir,
   outputInterfaceFileName,
@@ -56,6 +52,7 @@ const DYNAMIC_REG = /\/:([a-zA-Z]+)/g
 const cwd = process.cwd()
 const finallyInterfaceFileDir = path.resolve(cwd, interfaceOutputDir)
 const finallyRequestFileDir = path.resolve(cwd, reqeustOutputDir)
+const hasCustomAPIGenerator = typeof customAPIGenerator === 'function'
 
 function getDynamicPathParams (url) {
   // eg: /:id 转为 id
@@ -95,7 +92,7 @@ function getMatchedResult (api) {
 }
 
 function createAPIName (api) {
-  let { _id, prodUrl, options: { method } } = api
+  let { _id, options: { method } } = api
   let { path } = getMatchedResult(api)
   let pathArray = path.replace(DYNAMIC_REG, '').split('/')
   // 取最后一个路径作为api名字
@@ -195,20 +192,6 @@ function createInterfaceComment (api) {
 `
 }
 
-function createRequestComment (api) {
-  let {
-    _id,
-    name,
-    group
-  } = api
-  let tabStr = fillIndent()
-  return `${tabStr}/**
-${tabStr} * 接口名称: ${name}
-${tabStr} * 文档地址: ${MOCK_DOC_URL + group + '/' + _id}
-${tabStr} */
-`
-}
-
 function createDynamicPathInterface (api, interfaceName) {
   let content = getMatchedResult(api)
     .dynamicPathParams.reduce((content, param) => (content += `${fillIndent()}${param}: number;${LF}`), '')
@@ -279,39 +262,32 @@ function createAPIInterface (api, interfaceNameObj) {
  * @returns String
  * 接口可能不存在 query & payload， 给与默认值 void
  */
-function createRequest (api, { dynamicPathInterfaceName, queryInterfaceName = 'object', bodyInterfaceName, responseInterfaceName }) {
-  let { _id, prodUrl, options: { method, params: { body } } } = api
+function createRequest (api, interfaceNameObj) {
+  let { _id, name, devUrl, prodUrl, group, options: { method, response, params: { query, body } } } = api
   let { path } = getMatchedResult(api)
-  let indent = fillIndent()
   let APIName = createAPIName(api)
   let hasDynamic = DYNAMIC_REG.test(prodUrl)
-  let requireStr = '?'
 
-  let baseInterface = baseExtendInterface
-  let genericParams = queryInterfaceName
-
-  if (hasDynamic) {
-    requireStr = ''
-    baseInterface = dynamicPathExtendInterface
-    genericParams += ', ' + dynamicPathInterfaceName
+  if (typeof customAPIGenerator === 'function') {
+    return customAPIGenerator({
+      id: _id,
+      name,
+      method,
+      mockUrl: `${MOCK_API_URL}${_id}`,
+      devUrl,
+      prodUrl,
+      docUrl: `${MOCK_DOC_URL}${group}/${_id}`,
+      groupId: group,
+      query,
+      body,
+      data: response[0] ? response[0].params : [],
+      hasDynamic,
+      getValidParams,
+      APIName,
+      interfaceNameObj,
+      path
+    })
   }
-
-  if (method !== 'get' && getValidParams(body).length) {
-    requireStr = ''
-    baseInterface = bodyExtendInterface
-    genericParams += ', ' + bodyInterfaceName
-  }
-
-  // 同时满足动态路径 和 http body 的条件下
-  if (hasDynamic && method !== 'get' && getValidParams(body).length) {
-    baseInterface = bothExtendInterface
-  }
-
-  let generic = `${baseInterface}<${genericParams}>`
-  let returnExpressionStr = `${createRequestFn}('${method}', '${_id}', '${path}', false)(arg)`
-  let comment = createRequestComment(api)
-  let singleRequestText = `${indent}${APIName}: (arg${requireStr}: ${generic}): ${responseInterfaceName} => ${returnExpressionStr},${LF}`
-  return comment + singleRequestText
 }
 
 function createInterfaceNames (api) {
@@ -328,7 +304,9 @@ function createInterfaceNames (api) {
     let queryInterfaceName = createInterfaceName(api, queryInterfaceSuffix)
     namesObj.queryInterfaceName = queryInterfaceName
   }
-  if (getValidParams(body).length) {
+
+  // 非 get 方式的请求才会有 body
+  if (api.options.method !== 'get' && getValidParams(body).length) {
     let bodyInterfaceName = createInterfaceName(api, bodyInterfaceSuffix)
     namesObj.bodyInterfaceName = bodyInterfaceName
   }
@@ -359,6 +337,11 @@ function writeRequestIntoFile (requestList, requestFileName, interfaceFileName) 
   let relativeDirFromInterfaceFile = path.relative(finallyRequestFileDir, finallyInterfaceFileDir)
   let interfaceFileDir = path.join(relativeDirFromInterfaceFile, interfaceFileName)
 
+  // 如果是当前层级路径，加上 ./
+  if (/^\w/.test(interfaceFileDir)) {
+    interfaceFileDir = './' + interfaceFileDir
+  }
+
   let importText = 'import {' + LF
   let exportText = 'export default {' + LF
   requestList.forEach(request => {
@@ -367,7 +350,7 @@ function writeRequestIntoFile (requestList, requestFileName, interfaceFileName) 
     importText += indent + Object.values(interfaceNameObj).join(',' + LF + indent) + `,${LF}`
     exportText += apiRequest
   })
-  importText += `${LF}} from '${interfaceFileDir}'${LF}`
+  importText += `} from '${interfaceFileDir}'${LF}${LF}` // 两个换行符，中间空一行
   exportText += '}' + LF
 
   // 全局作用域的 interface 不需要 import
@@ -382,12 +365,14 @@ function writeRequestIntoFile (requestList, requestFileName, interfaceFileName) 
 function processResource (api) {
   let interfaceNameObj = createInterfaceNames(api)
   let apiInterface = createAPIInterface(api, interfaceNameObj)
-  let apiRequest = createRequest(api, interfaceNameObj)
 
-  return {
+  return hasCustomAPIGenerator ? {
     interfaceNameObj,
     apiInterface,
-    apiRequest
+    apiRequest: createRequest(api, interfaceNameObj)
+  } : {
+    interfaceNameObj,
+    apiInterface
   }
 }
 
@@ -406,10 +391,10 @@ function processResources (resources, moduleConfig) {
       try {
         let { apiInterface, apiRequest, interfaceNameObj } = processResource(resource)
         interfaceList.push({ apiInterface, interfaceNameObj })
-        requestList.push({ apiRequest, interfaceNameObj })
+        hasCustomAPIGenerator && requestList.push({ apiRequest, interfaceNameObj })
       } catch (err) {
         let { _id, group, name } = resource
-        console.log(`${name}: 处理该接口时遇到了未知错误，请检查接口文档是否规范: ${MOCK_DOC_URL}${group}/${_id}`)
+        console.log(err, `${name}: 处理该接口时遇到了未知错误，请检查接口文档是否规范: ${MOCK_DOC_URL}${group}/${_id}`)
       }
     })
     let moduleName
@@ -425,7 +410,11 @@ function processResources (resources, moduleConfig) {
 
     writeInterfaceIntoFile(interfaceList, finallyInterfaceOutputFileName)
     // writeCommentsIntoFile(comment)
-    writeRequestIntoFile(requestList, finallyRequestOutputFileName, finallyInterfaceOutputFileName)
+
+    // 有自定义处理request函数配置项时，才生成此request文件
+    if (hasCustomAPIGenerator) {
+      writeRequestIntoFile(requestList, finallyRequestOutputFileName, finallyInterfaceOutputFileName)
+    }
   }
 }
 

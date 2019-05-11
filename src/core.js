@@ -138,17 +138,17 @@ function getResponseParams (api) {
  * 解析 apimocker 的参数，生成对应的interface
  * 递归处理数据
  */
-function getFiledInterfaceType ({ type, items, params }, level = 1) {
+function getFiledInterfaceType ({ type, items, params }, level = 1, forceRequired) {
   // console.log(type)
   if (isSimpleType(type)) {
     return type
   } else if (isArray(type)) {
-    let str = getFiledInterfaceType(items, level) // 数组类型的 params children 可能不在 params 上，在 items 字段上
+    let str = getFiledInterfaceType(items, level, forceRequired) // 数组类型的 params children 可能不在 params 上，在 items 字段上
     str += '[]'
     return str
   } else if (isObject(type)) {
     let str = '{' + LF
-    str += createInterfaceFileds(params, level + 1)
+    str += createInterfaceFileds(params, level + 1, forceRequired)
     str += fillIndent(level) + '}'
     return str
   } else {
@@ -162,7 +162,7 @@ function createInterfaceFiled (param, level, forceRequired) {
   let tabStr = fillIndent(level)
 
   let paramComment = param.comment ? `${tabStr}/** ${param.comment} */${LF}` : ''
-  let singleParamText = `${tabStr}${key}${optionalStr}: ${getFiledInterfaceType(param, level)};${LF}`
+  let singleParamText = `${tabStr}${key}${optionalStr}: ${getFiledInterfaceType(param, level, forceRequired)};${LF}`
   return paramComment + singleParamText
 }
 

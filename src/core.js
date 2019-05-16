@@ -39,15 +39,19 @@ const EXT = '.ts'
 
 // 该正则捕获三个分组: 项目名、模块名、剩余路径
 // eg: https://dxcare.cn/clinic/medicine/chineseMedicine/:id => clinic(项目名), medicine(模块名), /chineseMedicine/:id(剩余路径)
-const FULL_API_URL_REG = /https?:\/\/\w+\.(?:cn|com)\/(\w+)\/(\w+)(\/.*)$/
+const FULL_API_URL_REG = /https?:\/\/\w+\.(?:cn|com)\/([\w-_]+)\/([\w-_]+)(\/.*)$/
+
+// 该正则只捕获 path
+const DOMAN_PATH_REG = /https?:\/\/\w+\.(?:cn|com)(\/.*)$/
 
 // 有些接口未带上域名, eg: /clinic/patient/patient/member/rule/:id
 // 此时无法判断 项目名和模块名， 因为会出现无项目名的情况
-const API_URL_REG = /\/.*$/
+const API_URL_REG = /^(\/[\w-_:]+)+$/
 
 // 该正则提取动态参数
 // eg: https://dxcare.cn/clinic/medicine/chineseMedicine/:id/:patientId => [/:id, /:patientId]
-const DYNAMIC_REG = /\/:([a-zA-Z]+)/g
+// eg: https://dxcare.cn/clinic/medicine/chineseMedicine/{id}/{patientId} => [/:id, /:patientId]
+const DYNAMIC_REG = /\/((:[\w-_]+)|(\{[\w-_]+\}))/g
 
 const cwd = process.cwd()
 const finallyInterfaceFileDir = path.resolve(cwd, interfaceOutputDir)
@@ -55,14 +59,15 @@ const finallyRequestFileDir = path.resolve(cwd, reqeustOutputDir)
 const hasCustomAPIGenerator = typeof customAPIGenerator === 'function'
 
 function getDynamicPathParams (url) {
-  // eg: /:id 转为 id
-  return (url.match(DYNAMIC_REG) || []).map(param => param.slice(2))
+  // eg: /:id 或者 /{id} 转为 id
+  return (url.match(DYNAMIC_REG) || []).map(param => param.replace(/[:{}]/g, '').slice(1))
 }
 
 function getMatchedResult (api) {
   let { prodUrl, devUrl, _id, group } = api
+
   // 线上地址未填的话，取测试地址
-  let url = FULL_API_URL_REG.test(prodUrl) || API_URL_REG.test(prodUrl) ? prodUrl : devUrl
+  let url = FULL_API_URL_REG.test(prodUrl) || DOMAN_PATH_REG.test(prodUrl) || API_URL_REG.test(prodUrl) ? prodUrl : devUrl
 
   // 域名 + 模块名 + path
   if (FULL_API_URL_REG.test(url)) {
@@ -76,6 +81,16 @@ function getMatchedResult (api) {
       restPath,
       dynamicPathParams
     }
+  } else if (DOMAN_PATH_REG.test(url)) {
+    // 域名 + path
+    // 无法确定模块名，采用配置的模块名，如果不存在，则以该hash命名
+    let path = RegExp.$1
+    let dynamicPathParams = getDynamicPathParams(path)
+    return {
+      moduleName: group,
+      path,
+      dynamicPathParams
+    }
   } else if (API_URL_REG.test(url)) {
     // 模块名? + path
     // 无法确定模块名，采用配置的模块名，如果不存在，则以该hash命名
@@ -83,7 +98,7 @@ function getMatchedResult (api) {
     let dynamicPathParams = getDynamicPathParams(matchURL)
     return {
       moduleName: group,
-      path: matchURL,
+      path: url,
       dynamicPathParams
     }
   } else {
@@ -139,7 +154,6 @@ function getResponseParams (api) {
  * 递归处理数据
  */
 function getFiledInterfaceType ({ type, items, params }, level = 1, forceRequired) {
-  // console.log(type)
   if (isSimpleType(type)) {
     return type
   } else if (isArray(type)) {
@@ -394,7 +408,7 @@ function processResources (resources, moduleConfig) {
         hasCustomAPIGenerator && requestList.push({ apiRequest, interfaceNameObj })
       } catch (err) {
         let { _id, group, name } = resource
-        console.log(err, `${name}: 处理该接口时遇到了未知错误，请检查接口文档是否规范: ${MOCK_DOC_URL}${group}/${_id}`)
+        console.log(`${name}: 处理该接口时遇到了未知错误，生成失败。\n请检查接口文档是否规范: ${MOCK_DOC_URL}${group}/${_id}`)
       }
     })
     let moduleName

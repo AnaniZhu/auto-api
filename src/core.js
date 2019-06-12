@@ -226,12 +226,13 @@ function createDataInterface (api, params, interfaceName) {
 }
 
 function createRequestInterface (api, { dynamicPathInterfaceName, queryInterfaceName, bodyInterfaceName }) {
-  let { params, method } = api.options
+  let { options, prodUrl, devUrl } = api
+  let { params, method } = options
   let { body, query } = params
 
   let interfaceText = ''
 
-  if (DYNAMIC_REG.test(api.prodUrl)) {
+  if (DYNAMIC_REG.test(prodUrl || devUrl)) {
     interfaceText += createDynamicPathInterface(api, dynamicPathInterfaceName)
   }
 
@@ -280,7 +281,7 @@ function createRequest (api, interfaceNameObj) {
   let { _id, name, devUrl, prodUrl, group, options: { method, response, params: { query, body } } } = api
   let { path } = getMatchedResult(api)
   let APIName = createAPIName(api)
-  let hasDynamic = DYNAMIC_REG.test(prodUrl)
+  let hasDynamic = DYNAMIC_REG.test(prodUrl || devUrl)
 
   if (typeof customAPIGenerator === 'function') {
     return customAPIGenerator({
@@ -307,10 +308,12 @@ function createRequest (api, interfaceNameObj) {
 function createInterfaceNames (api) {
   let responseInterfaceName = createInterfaceName(api, responseInterfaceSuffix)
 
-  let namesObj = {} // 按顺序给对象添加属性，方便后续遍历
-  let { body, query } = api.options.params
+  let { options, prodUrl, devUrl } = api
 
-  if (DYNAMIC_REG.test(api.prodUrl)) {
+  let namesObj = {} // 按顺序给对象添加属性，方便后续遍历
+  let { body, query } = options.params
+
+  if (DYNAMIC_REG.test(prodUrl || devUrl)) {
     namesObj.dynamicPathInterfaceName = createInterfaceName(api, dynamicPathInterfaceSuffix)
   }
   // 存在参数时才生成对应的name, 某些接口无有效 query & paylaod
@@ -320,7 +323,7 @@ function createInterfaceNames (api) {
   }
 
   // 非 get 方式的请求才会有 body
-  if (api.options.method !== 'get' && getValidParams(body).length) {
+  if (options.method !== 'get' && getValidParams(body).length) {
     let bodyInterfaceName = createInterfaceName(api, bodyInterfaceSuffix)
     namesObj.bodyInterfaceName = bodyInterfaceName
   }

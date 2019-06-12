@@ -6,25 +6,30 @@ auto-api 可根据 APIMocker 平台上的文档，生成类型声明的 interfac
   - 接口自动化
   - 可配置
   - 更多功能开发中...
+
+##  TODO:
+- [ ] typescript + class 重构
+
+
 ## 前提
 typescipt 项目可用
 
 ## 命令行命令
-| 指令             | 说明                                         | 其他 |
-| ---------------- | -------------------------------------------- | ---- |
-| `auto create`    | 初始化生成 interface 和 request              | -    |
-| `auto interface` | 初始化生成 interface, 待开发                 | -    |
-| `auto mock`      | 根据文档的 moc k数据自动生成本地 mock,待开发 | -    |
-| ...              | 更多功能待开发...                            | -    |
+| 指令             | 说明   |
+| -------------------------------------------- | ---- |
+| `auto create`    | 初始化生成 interface 和 request              |
+| `auto interface` | 初始化生成 interface, 待开发                 |
+| `auto mock`      | 根据文档的 moc k数据自动生成本地 mock,待开发 |
+| ...              | 更多功能待开发...                            |
 
 
 ## 配置
 ### 本工具会自动读取项目根目录 .automock.js 文件中的配置，全部配置及默认值如下:
 
-```
+```js
 {
   // 缩进大小
-  tabSize: 2,v
+  tabSize: 2,
 
   // interface 是否全局作用域， 非全局会导出，request 文件自动导入
   isGlobal: false,
@@ -103,19 +108,14 @@ v
 > 毋庸置疑，使用全局变量空间是危险的，因为它会与文件内的代码命名冲突。我们推荐使用下文中将要提到的文件模块。
 ---
 
-#### interfacePrefix
-#### dynamicPathInterfaceSuffix
-#### queryInterfaceSuffix
-#### bodyInterfaceSuffix
-#### responseInterfaceSuffix
+#### interfacePrefix dynamicPathInterfaceSuffix queryInterfaceSuffix  bodyInterfaceSuffix responseInterfaceSuffix
 以上几个配置项，则是给生成的 interface 名字加前缀或后缀，根据不同的 interface 补上不同的后缀，前缀则是统一补充
 > 前缀的意义？在其他引用的地方，方便标识这个“变量”为类型定义。比如以默认值 I 为例，在其他文件看到 Ixxxx 则知道它是一个 interface
 
 默认值分别为 `I`, `Path`, `Query`, `Body`, `Response`
 ___
 
-#### interfaceOutputDir
-#### reqeustOutputDir
+#### interfaceOutputDir reqeustOutputDir
 生成的 interface 文件及 request 文件 最终输出的路径，此填写的路径是相对于配置文件(.automock.js)
 
 默认值分别为 `./src/interface`, `./src/request`
@@ -141,7 +141,9 @@ ___
 
 默认值为 `''`
 
-因为 `customAPIGenerator` 返回的字符串代码，可能用到了该文件未声明的变量或函数，这个配置项可以直接变量、函数等一切代码，你也可以注入 `import xxx from 'xxxx'`等字符串。只要你想，一切都可以。
+因为 `customAPIGenerator` 返回的字符串代码，可能用到了该文件未声明的变量或函数，这个配置项可以直接变量、函数等一切代码，你也可以注入 `import xxx from 'xxxx'`等字符串。
+
+只要你想，一切都可以。
 
 ___
 
@@ -172,11 +174,14 @@ PropsType为一个对象， 具体属性如下所示:
 该函数接受一个返回值(string)，该字符串就是输出到文件的一个个 API
 
 假设有以下配置
-```
+```js
 // .autmock.js
 let injectRequestFileText = `
+
 // 注入的内容 Start
+
 import my from 'my'
+
 // 注入的内容 END
 
 `
@@ -236,9 +241,10 @@ ___
   - `name` 代表生成文件的文件名[name]的占位符
   - `includes` 和 `excludes` 皆为一个数组，数组每一项都是字符串，代表单个接口的id，先会导入 `incldues` 的所有接口，再经过 excludes 过滤，过滤后的接口才会进行处理(生成 interface 和 request)。
 
+<br>
 
 下面看一个例子:
-```
+```js
 const subscribeMockModules = [
   '5ccfd077efcdb713791d0a99',
   {
@@ -268,5 +274,5 @@ const subscribeMockModules = [
 ### EXAMPLE
 #### 以该配置为例
 ```
-// 后续添加
+// TODO: 后续添加
 ```
